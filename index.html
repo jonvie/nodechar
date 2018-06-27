@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Socket.IO Example</title>
+  </head>
+<script src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="http://ajax.microsoft.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
+<script src="http://localhost:3000/socket.io/socket.io.js"></script>
+<script type="text/x-jquery-tmpl" id="msgTemp">
+  <div {{html Style.Box}}>
+  <div {{html Style.ID}}>${FromUserMsg.UserName}</div>
+  <div {{html Style.Content}}>{{html MsgContent}}</div>
+  </div>
+ </script>
+  <body>
+    <h1>TS+nodeJS实现及时通讯</h1>
+    <h2>在线用户<span id="count">0</span></h2>
+    <div id="msg" style="width:450px;height: 600px;border: 1px solid #000000;overflow:scroll;padding: 5px;"></div> 
+    <div>
+      <div>用户名:<input type="text" id="userName"value="" /> 
+        发消息给:
+        <select id="userID">
+          <option value="">请选择</option>
+        </select>
+      </div>
+      <div>消息内容:<textarea id="msgText"></textarea></div>
+      <button id="send">发送</button>
+    </div>
+    <script>
+      var testData={UserMsg:{ConnID:"userid"},MsgContent:"一个文本消息"}
+      var path=window.location.pathname;
+      var thisUserName="anymouse";
+      console.log(path);
+      var count = document.getElementById('count');
+      var socket = io.connect('http://127.0.0.1:3000'+path);
+      socket.on('online',function(data){
+        count.innerHTML = data.number
+      });
+      socket.on('updateUser',function(data){
+           //console.log(data);
+           $("#userID").find('option').remove();
+           Object.keys(data).forEach(function(key){
+              //console.log(key,data[key]);
+              $("#userID").append(`<option value='${data[key].ConnID}'>${data[key].UserName}[${data[key].ConnID}]</option>`);
+           });
+      });
+      socket.on('toMe',function(data){
+        if(data.ToUserMsg.ConnID!=data.FromUserMsg.ConnID)
+        {
+         addMsg(data,false);
+        }
+      });
+
+      function addMsg(dataJson,isme)
+      {
+        dataJson.Style={Box:"",ID:"",Content:""};
+        if(isme)
+        {
+          dataJson.Style.Box='style="text-align: right;"';
+          dataJson.Style.ID='style="text-align: right;"';
+          dataJson.Style.Content='style="text-align: right;"';
+        }
+        $("#msgTemp").tmpl(dataJson).appendTo("#msg");
+        $("#msg").scrollTop($("#msg")[0].scrollHeight); 
+      }
+      //addMsg(testData,false);
+      //addMsg(testData,true);
+
+
+      $(function(){
+        if($("#userName").val()=="")
+        {
+          $("#userName").val(thisUserName);
+        }
+
+        $("#send").click(function(){
+          if($("#userName").val()!="" && thisUserName!=$("#userName").val())
+          {
+           thisUserName=$("#userName").val();
+           socket.emit('updateUser', {userName:$("#userName").val()});
+          }
+
+          if($('#msgText').val()!="")
+          {
+          let msg={
+             ToUserMsg:{ConnID:$('#userID').val()},
+             FromUserMsg:{ConnID:"",UserName:thisUserName},
+             MsgContent:$('#msgText').val()
+            };
+           socket.emit('toUser',msg);
+           addMsg(msg,true);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
